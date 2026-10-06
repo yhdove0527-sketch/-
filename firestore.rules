@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 64;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Health check & CRUD test collection
+    match /test/{testId} {
+      allow read, write: if isValidId(testId);
+    }
+
+    // Class configurations
+    match /classes/{classId} {
+      allow read: if isValidId(classId);
+      allow create, update: if isValidId(classId)
+        && incoming().schoolYear is string && incoming().schoolYear.size() <= 10
+        && incoming().grade is number
+        && incoming().classNum is number
+        && incoming().classPasswordHash is string && incoming().classPasswordHash.size() <= 128;
+      allow delete: if isValidId(classId);
+    }
+
+    // Students
+    match /students/{studentKey} {
+      allow read: if isValidId(studentKey);
+      allow create: if isValidId(studentKey)
+        && incoming().studentName is string && incoming().studentName.size() <= 32
+        && incoming().passwordHash is string && incoming().passwordHash.size() <= 128
+        && incoming().grade is number
+        && incoming().classNum is number
+        && incoming().studentNumber is number;
+      allow update: if isValidId(studentKey)
+        && incoming().studentName is string && incoming().studentName.size() <= 32
+        && incoming().passwordHash is string && incoming().passwordHash.size() <= 128;
+      allow delete: if isValidId(studentKey);
+    }
+
+    // Typing records
+    match /typingRecords/{recordId} {
+      allow read: if isValidId(recordId);
+      allow create: if isValidId(recordId)
+        && incoming().studentKey is string && incoming().studentKey.size() <= 64
+        && incoming().cpm is number
+        && incoming().accuracy is number;
+      allow update: if isValidId(recordId);
+      allow delete: if isValidId(recordId);
+    }
+
+    // Process-based evaluations
+    match /evaluations/{studentKey} {
+      allow read: if isValidId(studentKey);
+      allow create, update: if isValidId(studentKey)
+        && incoming().studentName is string && incoming().studentName.size() <= 32
+        && incoming().status in ['draft', 'approved'];
+      allow delete: if isValidId(studentKey);
+    }
+
+    // Custom practice texts
+    match /customTexts/{textId} {
+      allow read: if isValidId(textId);
+      allow create, update: if isValidId(textId)
+        && incoming().topic is string && incoming().topic.size() <= 128
+        && incoming().items is list && incoming().items.size() <= 50;
+      allow delete: if isValidId(textId);
+    }
+  }
+}
